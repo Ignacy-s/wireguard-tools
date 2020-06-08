@@ -382,7 +382,6 @@ kernel_get_device(struct wgdevice **device, const char *ifname)
 	}
 	if (!nvlist_exists_nvlist_array(nvl, "peer-list")) {
 		*device = dev;
-		errno = 0;
 		goto success;
 	}
 	nvl_peerlist = nvlist_get_nvlist_array(nvl, "peer-list", &peercount);
@@ -401,7 +400,7 @@ success:
 out:
 	free(packed);
 	nvlist_destroy(nvl);
-	return (-errno);	
+	return (-rc);
 }
 
 
