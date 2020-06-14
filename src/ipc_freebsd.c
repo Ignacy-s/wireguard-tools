@@ -39,8 +39,8 @@ typedef enum {
 	WGC_PEER_DEL = 0x2,
 	WGC_PEER_UPDATE = 0x3,
 	WGC_PEER_LIST = 0x4,
-	WGC_LOCAL_SHOW = 0x5,
-	WGC_DEVICE_CONFIGURE = 0x6,
+	WGC_GET = 0x5,
+	WGC_SET = 0x6,
 } wg_cmd_t;
 
 struct allowedip {
@@ -289,7 +289,7 @@ get_nvl_out_size(int sock, const char *ifname, u_long op, size_t *size)
 
 	err = ioctl(sock, SIOCGDRVSPEC, &ifd);
 	if (err)
-		return (err);
+		return (errno);
 	*size = ifd.ifd_len;
 	return (0);
 }
@@ -352,12 +352,12 @@ kernel_get_device(struct wgdevice **device, const char *ifname)
 	rc = is_match(ifname);
 	if (rc)
 		return (-rc);
-	if ((rc = get_nvl_out_size(s, ifname, WGC_LOCAL_SHOW, &size)))
+	if ((rc = get_nvl_out_size(s, ifname, WGC_GET, &size)))
 		return (-rc);
 
 	if ((packed = malloc(size)) == NULL)
 		return (-ENOMEM);
-	if ((rc = do_cmd(s, ifname , WGC_LOCAL_SHOW, packed, size, 0))) {
+	if ((rc = do_cmd(s, ifname , WGC_GET, packed, size, 0))) {
 		errno = -rc;
 		goto out;
 	}
@@ -380,10 +380,8 @@ kernel_get_device(struct wgdevice **device, const char *ifname)
 		memcpy(dev->private_key, key, sizeof(dev->private_key));
 		dev->flags |= WGDEVICE_HAS_PRIVATE_KEY;
 	}
-	if (!nvlist_exists_nvlist_array(nvl, "peer-list")) {
-		*device = dev;
+	if (!nvlist_exists_nvlist_array(nvl, "peer-list"))
 		goto success;
-	}
 	nvl_peerlist = nvlist_get_nvlist_array(nvl, "peer-list", &peercount);
 	for (int i = 0; i < (int)peercount; i++, nvl_peerlist++) {
 		peer = unpack_peer(*nvl_peerlist);
@@ -437,14 +435,16 @@ kernel_set_device(struct wgdevice *dev)
 
 	i = 0;
 	for_each_wgpeer(dev, peer) {
+		assert(i < peer_count);
 		nvl_array[i] = pack_peer(peer);
 		if (nvl_array[i] == NULL)
 			break;
 		i++;
 	}
-	nvlist_add_nvlist_array(nvl, "peer-list", (const nvlist_t * const *)nvl_array, i);
+	if (i > 0)
+		nvlist_add_nvlist_array(nvl, "peer-list", (const nvlist_t * const *)nvl_array, i);
 	packed = nvlist_pack(nvl, &size);
-	if (do_cmd(s, dev->name, WGC_DEVICE_CONFIGURE, packed, size, true)) {
+	if (do_cmd(s, dev->name, WGC_SET, packed, size, true)) {
 		rc = -errno;
 		goto out;
 	}
