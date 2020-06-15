@@ -180,10 +180,13 @@ pack_peer(struct wgpeer *peer)
 			in_len2mask((struct in_addr *)data, aip->cidr);
 			addr = &satosin(&paips->a_addr)->sin_addr;
 			memcpy(addr, &aip->ip4, sizeof(aip->ip4));
+			paips->a_addr.sa_len = sizeof(struct sockaddr_in);
 		} else if (aip->family == AF_INET6) {
 			in6_prefixlen2mask((struct in6_addr *)data, aip->cidr);
 			addr = &satosin6(&paips->a_addr)->sin6_addr;
-			memcpy(addr, &aip->ip4, sizeof(aip->ip4));
+			memcpy(addr, &aip->ip6, sizeof(aip->ip6));
+			paips->a_addr.sa_len = sizeof(struct sockaddr_in6);
+
 		} else
 			errx(1, "invalid address family");
 		paips++;
